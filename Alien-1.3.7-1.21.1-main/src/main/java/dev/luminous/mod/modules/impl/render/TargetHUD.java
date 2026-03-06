@@ -6,7 +6,7 @@ import dev.luminous.mod.modules.impl.combat.AutoCrystal;
 import dev.luminous.api.utils.render.Render2DUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
@@ -62,14 +62,13 @@ public class TargetHUD extends Module {
         float h = height.getValueFloat();
         float r = radius.getValueFloat();
         int a = alpha.getValueInt();
-        MatrixStack matrices = context.getMatrices();
 
         // 1. 绘制圆角背景
-        Render2DUtil.drawRound(matrices, x, y, w, h, r, new Color(20, 20, 20, a));
+        Render2DUtil.drawRound(context.getMatrices(), x, y, w, h, r, new Color(20, 20, 20, a));
 
         // 2. 绘制玩家头像
         if (target instanceof PlayerEntity player) {
-            drawPlayerHead(context, matrices, player, x + 5, y + 5, h - 10, h - 10);
+            drawPlayerHead(context, player, x + 5, y + 5, h - 10);
         }
 
         // 3. 绘制血条
@@ -77,8 +76,8 @@ public class TargetHUD extends Module {
         float barY = y + h - 18;
         float barW = w - h - 5;
         float barH = 8;
-        Render2DUtil.drawRect(matrices, barX, barY, barW, barH, new Color(50, 50, 50));
-        Render2DUtil.drawRect(matrices, barX, barY, barW * healthPercent, barH, getHealthColor(healthPercent));
+        Render2DUtil.drawRect(context.getMatrices(), barX, barY, barW, barH, new Color(50, 50, 50));
+        Render2DUtil.drawRect(context.getMatrices(), barX, barY, barW * healthPercent, barH, getHealthColor(healthPercent));
 
         // 4. 绘制目标名称
         context.drawTextWithShadow(mc.textRenderer, Text.literal(target.getName().getString()), (int)barX, (int)barY - 12, Color.WHITE.getRGB());
@@ -89,29 +88,29 @@ public class TargetHUD extends Module {
         context.drawTextWithShadow(mc.textRenderer, Text.literal(healthText), (int)textX, (int)barY + 1, Color.WHITE.getRGB());
     }
 
-    // 玩家头像绘制
-    private void drawPlayerHead(DrawContext context, MatrixStack matrices, PlayerEntity player, float x, float y, float w, float h) {
-        // 获取玩家皮肤纹理
-        Identifier skin = player.getSkinTextures().texture();
-        mc.getTextureManager().bindTexture(skin);
+    // 玩家头像绘制 - 完全基于NameTags.java的成功实现
+    private void drawPlayerHead(DrawContext context, PlayerEntity player, float x, float y, float size) {
+        try {
+            // 获取玩家皮肤纹理（与NameTags.java相同的API）
+            Identifier skin = player.getSkinTextures().texture();
+            mc.getTextureManager().bindTexture(skin);
 
-        matrices.push();
-        matrices.translate(x, y, 0);
-        matrices.scale(w / 8f, h / 8f, 1f);
+            // 禁用光照，确保头像显示清晰（与NameTags.java相同）
+            DiffuseLighting.disableGuiDepthLighting();
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+            // 绘制头像（8x8像素的头部区域，从8,8开始）
+            context.drawTexture(skin, (int)x, (int)y, 8, 8, 8, 8, 64, 64);
 
-        // 绘制皮肤头部区域（8x8像素）
-        context.drawTexture(matrices, 0, 0, 8, 8, 8, 8, 8, 8, 64, 64);
+            // 绘制头盔层（从40,8开始）
+            context.drawTexture(skin, (int)x, (int)y, 40, 8, 8, 8, 64, 64);
 
-        // 绘制头盔层
-        context.drawTexture(matrices, 0, 0, 8, 8, 40, 8, 8, 8, 64, 64);
-
-        matrices.pop();
+        } catch (Exception e) {
+            // 如果绘制头像失败，绘制一个简单的灰色方块代替
+            Render2DUtil.drawRect(context.getMatrices(), x, y, size, size, new Color(100, 100, 100));
+        }
     }
 
-    // 获取战斗目标
+    // 获取战斗目标 - 基于KillAura.java和AutoCrystal.java的实际字段
     private LivingEntity getCombatTarget() {
         // 获取KillAura目标
         if (KillAura.INSTANCE != null && KillAura.INSTANCE.isOn() && KillAura.target instanceof LivingEntity livingEntity) {
