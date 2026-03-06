@@ -6,13 +6,11 @@ import dev.luminous.mod.modules.impl.combat.AutoCrystal;
 import dev.luminous.api.utils.render.Render2DUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.VertexSorter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import org.joml.Matrix4f;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.luminous.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
@@ -82,7 +80,7 @@ public class TargetHUD extends Module {
         Render2DUtil.drawRect(matrices, barX, barY, barW, barH, new Color(50, 50, 50));
         Render2DUtil.drawRect(matrices, barX, barY, barW * healthPercent, barH, getHealthColor(healthPercent));
 
-        // 4. 绘制目标名称（修复drawWithShadow方法调用）
+        // 4. 绘制目标名称
         context.drawTextWithShadow(mc.textRenderer, Text.literal(target.getName().getString()), (int)barX, (int)barY - 12, Color.WHITE.getRGB());
 
         // 5. 绘制血量文字（居中）
@@ -91,7 +89,7 @@ public class TargetHUD extends Module {
         context.drawTextWithShadow(mc.textRenderer, Text.literal(healthText), (int)textX, (int)barY + 1, Color.WHITE.getRGB());
     }
 
-    // 玩家头像绘制（修复context变量问题）
+    // 玩家头像绘制
     private void drawPlayerHead(DrawContext context, MatrixStack matrices, PlayerEntity player, float x, float y, float w, float h) {
         // 获取玩家皮肤纹理
         Identifier skin = player.getSkinTextures().texture();
@@ -107,14 +105,13 @@ public class TargetHUD extends Module {
         // 绘制皮肤头部区域（8x8像素）
         context.drawTexture(matrices, 0, 0, 8, 8, 8, 8, 8, 8, 64, 64);
 
-        // 移除canRenderCape()调用，因为该方法不存在
-        // 直接绘制头盔层
+        // 绘制头盔层
         context.drawTexture(matrices, 0, 0, 8, 8, 40, 8, 8, 8, 64, 64);
 
         matrices.pop();
     }
 
-    // 自动适配模块管理器，获取战斗目标（移除AutoAnchor）
+    // 获取战斗目标
     private LivingEntity getCombatTarget() {
         // 获取KillAura目标
         if (KillAura.INSTANCE != null && KillAura.INSTANCE.isOn() && KillAura.target instanceof LivingEntity livingEntity) {
