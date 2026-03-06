@@ -13,7 +13,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.minecraft.client.render.VertexSorter;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.joml.Matrix4f;
 import java.awt.Color;
@@ -67,13 +66,10 @@ public class TargetHUD extends Module {
         float r = radius.getValueFloat();
         int a = alpha.getValueInt();
 
-        // 2D渲染初始化（1.21.1适配，修复setProjectionMatrix）
+        // 2D渲染初始化（1.21.1适配，移除VertexSorter参数）
         RenderSystem.getModelViewStack().pushMatrix();
         RenderSystem.getModelViewStack().loadIdentity();
-        RenderSystem.setProjectionMatrix(
-                new Matrix4f().setOrtho(0, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(), 0, 1000, 3000),
-                VertexSorter.INSTANCE
-        );
+        RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight(), 0, 1000, 3000));
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableDepthTest();
@@ -81,7 +77,7 @@ public class TargetHUD extends Module {
         // 1. 绘制圆角背景
         Render2DUtil.drawRound(matrices, x, y, w, h, r, new Color(20, 20, 20, a));
 
-        // 2. 绘制玩家头像（1.21.1原生API）
+        // 2. 绘制玩家头像（1.21.1原生API，彻底修复drawTexture）
         if (target instanceof PlayerEntity player) {
             drawPlayerHead(matrices, player, x + 5, y + 5, h - 10, h - 10);
         }
@@ -108,22 +104,17 @@ public class TargetHUD extends Module {
         RenderSystem.getModelViewStack().popMatrix();
     }
 
-    // 玩家头像绘制（1.21.1原生API，无额外依赖）
+    // 彻底修复的头像绘制（1.21.1 兼容，无mc.drawTexture依赖）
     private void drawPlayerHead(MatrixStack matrices, PlayerEntity player, float x, float y, float w, float h) {
-        // 获取玩家皮肤纹理（1.21.1适配）
         Identifier skin = player.getSkinTextures().texture();
-        mc.getTextureManager().bindTexture(skin);
-
+        RenderSystem.setShaderTexture(0, skin);
         matrices.push();
         matrices.translate(x, y, 0);
         matrices.scale(w / 8f, h / 8f, 1f);
-
-        // 绘制皮肤头部区域（8x8像素）
-        RenderSystem.enableTexture();
-        mc.currentScreen.drawTexture(matrices, 0, 0, 8, 8, 8, 8, 8, 8, 64, 64);
-        // 绘制头盔（如果有）
+        // 使用 RenderSystem.drawTexture 替代 mc.drawTexture
+        RenderSystem.drawTexture(matrices.peek().getPositionMatrix(), 0, 0, 0, 8, 8, 8, 8, 64, 64);
         if (player.canRenderCape()) {
-            mc.currentScreen.drawTexture(matrices, 0, 0, 8, 8, 40, 8, 8, 8, 64, 64);
+            RenderSystem.drawTexture(matrices.peek().getPositionMatrix(), 0, 0, 0, 40, 8, 8, 8, 64, 64);
         }
         matrices.pop();
     }
