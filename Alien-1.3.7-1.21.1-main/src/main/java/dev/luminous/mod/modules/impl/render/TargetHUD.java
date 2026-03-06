@@ -3,15 +3,16 @@ package dev.luminous.mod.modules.impl.render;
 import dev.luminous.mod.modules.Module;
 import dev.luminous.mod.modules.impl.combat.KillAura;
 import dev.luminous.mod.modules.impl.combat.AutoCrystal;
-import dev.luminous.mod.modules.impl.combat.AutoAnchor;
 import dev.luminous.api.utils.render.Render2DUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.VertexSorter;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import org.joml.Matrix4f;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.luminous.mod.modules.settings.impl.SliderSetting;
 import java.awt.Color;
@@ -45,7 +46,7 @@ public class TargetHUD extends Module {
             return;
         }
 
-        // 获取战斗目标（优先级：KillAura > AutoCrystal > AutoAnchor）
+        // 获取战斗目标（优先级：KillAura > AutoCrystal）
         target = getCombatTarget();
         if (target == null || !target.isAlive()) {
             smoothHealth = 0;
@@ -70,7 +71,7 @@ public class TargetHUD extends Module {
 
         // 2. 绘制玩家头像
         if (target instanceof PlayerEntity player) {
-            drawPlayerHead(matrices, player, x + 5, y + 5, h - 10, h - 10);
+            drawPlayerHead(context, matrices, player, x + 5, y + 5, h - 10, h - 10);
         }
 
         // 3. 绘制血条
@@ -81,17 +82,17 @@ public class TargetHUD extends Module {
         Render2DUtil.drawRect(matrices, barX, barY, barW, barH, new Color(50, 50, 50));
         Render2DUtil.drawRect(matrices, barX, barY, barW * healthPercent, barH, getHealthColor(healthPercent));
 
-        // 4. 绘制目标名称
-        mc.textRenderer.drawWithShadow(matrices, Text.literal(target.getName().getString()), barX, barY - 12, Color.WHITE.getRGB());
+        // 4. 绘制目标名称（修复drawWithShadow方法调用）
+        context.drawTextWithShadow(mc.textRenderer, Text.literal(target.getName().getString()), (int)barX, (int)barY - 12, Color.WHITE.getRGB());
 
         // 5. 绘制血量文字（居中）
         String healthText = String.format("%.0f / %.0f", smoothHealth, target.getMaxHealth());
         float textX = barX + barW / 2f - mc.textRenderer.getWidth(healthText) / 2f;
-        mc.textRenderer.drawWithShadow(matrices, Text.literal(healthText), textX, barY + 1, Color.WHITE.getRGB());
+        context.drawTextWithShadow(mc.textRenderer, Text.literal(healthText), (int)textX, (int)barY + 1, Color.WHITE.getRGB());
     }
 
-    // 玩家头像绘制（1.21.1原生API，无额外依赖）
-    private void drawPlayerHead(MatrixStack matrices, PlayerEntity player, float x, float y, float w, float h) {
+    // 玩家头像绘制（修复context变量问题）
+    private void drawPlayerHead(DrawContext context, MatrixStack matrices, PlayerEntity player, float x, float y, float w, float h) {
         // 获取玩家皮肤纹理
         Identifier skin = player.getSkinTextures().texture();
         mc.getTextureManager().bindTexture(skin);
@@ -106,29 +107,23 @@ public class TargetHUD extends Module {
         // 绘制皮肤头部区域（8x8像素）
         context.drawTexture(matrices, 0, 0, 8, 8, 8, 8, 8, 8, 64, 64);
 
-        // 绘制头盔（如果有）
-        if (player.canRenderCape()) {
-            context.drawTexture(matrices, 0, 0, 8, 8, 40, 8, 8, 8, 64, 64);
-        }
+        // 移除canRenderCape()调用，因为该方法不存在
+        // 直接绘制头盔层
+        context.drawTexture(matrices, 0, 0, 8, 8, 40, 8, 8, 8, 64, 64);
 
         matrices.pop();
     }
 
-    // 自动适配模块管理器，获取战斗目标
+    // 自动适配模块管理器，获取战斗目标（移除AutoAnchor）
     private LivingEntity getCombatTarget() {
         // 获取KillAura目标
-        if (KillAura.INSTANCE.isOn() && KillAura.target instanceof LivingEntity livingEntity) {
+        if (KillAura.INSTANCE != null && KillAura.INSTANCE.isOn() && KillAura.target instanceof LivingEntity livingEntity) {
             return livingEntity;
         }
 
         // 获取AutoCrystal目标
-        if (AutoCrystal.INSTANCE.isOn() && AutoCrystal.INSTANCE.displayTarget != null) {
+        if (AutoCrystal.INSTANCE != null && AutoCrystal.INSTANCE.isOn() && AutoCrystal.INSTANCE.displayTarget != null) {
             return AutoCrystal.INSTANCE.displayTarget;
-        }
-
-        // 获取AutoAnchor目标
-        if (AutoAnchor.INSTANCE.isOn() && AutoAnchor.INSTANCE.target instanceof LivingEntity livingEntity) {
-            return livingEntity;
         }
 
         return null;
